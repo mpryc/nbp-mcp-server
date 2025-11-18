@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  nbp-mcp-server:
+    build: .
+    container_name: nbp-mcp-server
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    # Optional: Override command to change port or host
+    # command: ["python", "main.py", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]

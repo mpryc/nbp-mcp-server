@@ -1,0 +1,33 @@
+[project]
+name = "nbp-mcp-server"
+version = "0.1.0"
+description = "MCP server for accessing Polish National Bank (NBP) exchange rates and gold prices"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.21.2",
+    "uvicorn>=0.32.1",
+    "starlette>=0.41.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
