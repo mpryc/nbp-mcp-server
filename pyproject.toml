@@ -29,5 +29,4 @@ addopts = [
     "--cov-report=html",
 ]
 testpaths = ["tests"]
-asyncio_mode = "auto"
 pythonpath = ["."]

@@ -7,6 +7,16 @@ This guide explains how to build and run the NBP MCP Server using Docker or Podm
 Using Podman:
 ```bash
 podman build -t nbp-mcp-server:latest .
+
+#  export VER=1.0.1
+#  podman build --platform linux/arm64 -t quay.io/migi/nbp-mcp-server:${VER}-arm64 .
+#  podman build --platform linux/amd64 -t quay.io/migi/nbp-mcp-server:${VER}-amd64 .
+#  podman manifest create quay.io/migi/nbp-mcp-server:${VER}
+#  podman push quay.io/migi/nbp-mcp-server:${VER}-arm64
+#  podman push quay.io/migi/nbp-mcp-server:${VER}-amd64
+#  podman manifest add quay.io/migi/nbp-mcp-server:${VER} docker://quay.io/migi/nbp-mcp-server:${VER}-amd64
+#  podman manifest add quay.io/migi/nbp-mcp-server:${VER} docker://quay.io/migi/nbp-mcp-server:${VER}-arm64
+#  podman manifest push quay.io/migi/nbp-mcp-server:${VER}   docker://quay.io/migi/nbp-mcp-server:${VER}
 ```
 
 Using Docker:

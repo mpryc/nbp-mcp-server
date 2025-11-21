@@ -80,7 +80,7 @@ For n8n integration, use the HTTP Streamable transport with Docker:
 
 ```yaml
 nbp-mcp-server:
-  image: quay.io/migi/nbp-mcp-server:1.0.0
+  image: quay.io/migi/nbp-mcp-server:1.0.3
   hostname: nbp
   container_name: nbp-mcp-server
   networks: ['mynetwork']
@@ -120,29 +120,33 @@ Ile kosztowało EURO 15 lutego 2022 roku.
 
 ### 1. get_currency_rate
 
-Get the current exchange rate for a specific currency.
+Get the exchange rate for a specific currency, either current or for a specific date.
 
 **Parameters:**
 - `code` (required): Three-letter currency code (e.g., USD, EUR, GBP) - ISO 4217
+- `date` (optional): Specific date in YYYY-MM-DD format (ISO 8601). If not provided, gets current rate.
 - `table` (optional): Table type - 'a', 'b', or 'c' (default: 'a')
 
 **Example:**
 ```
 Get current USD exchange rate from table A
-Get EUR bid/ask rates (table C)
+Get EUR bid/ask rates for 2024-01-15 (table C)
+What was the GBP rate on 2024-03-20?
 ```
 
 ### 2. get_exchange_table
 
-Get a complete exchange rate table with all currencies.
+Get a complete exchange rate table with all currencies, either current or for a specific date.
 
 **Parameters:**
+- `date` (optional): Specific date in YYYY-MM-DD format (ISO 8601). If not provided, gets current table.
 - `table` (optional): Table type - 'a', 'b', or 'c' (default: 'a')
 
 **Example:**
 ```
 Get the current table A with all exchange rates
-Get table C with all bid/ask rates
+Get table C with all bid/ask rates for 2024-02-15
+What were all the exchange rates on 2024-01-01?
 ```
 
 ### 3. get_currency_rate_history
@@ -180,14 +184,18 @@ Get last 30 GBP rates from table C
 
 ### 5. get_gold_price
 
-Get the current gold price in PLN per gram.
+Get the gold price in PLN per gram, either current or for a specific date.
 
-**Parameters:** None
+**Parameters:**
+- `date` (optional): Specific date in YYYY-MM-DD format (ISO 8601). If not provided, gets current price.
+
+**Note:** Gold price data is available from January 2, 2013.
 
 **Example:**
 ```
 What is the current gold price?
-Get today's gold price
+What was the gold price on 2024-01-15?
+Get gold price for 2023-12-25
 ```
 
 ### 6. get_gold_price_history
@@ -224,8 +232,10 @@ Show me the last 30 gold quotations
 Once configured in Claude Desktop or another MCP client, you can ask:
 
 - "What's the current USD to PLN exchange rate?"
+- "What was the EUR rate on 2024-02-15?"
 - "Show me the last 30 days of EUR exchange rates"
 - "Get the complete table A with all current exchange rates"
+- "What were all the exchange rates on 2024-01-01?"
 - "What was the gold price on 2024-01-15?"
 - "Compare USD rates between table A and table C"
 - "Show me GBP exchange rate trends for the last 10 days"
@@ -256,34 +266,37 @@ The project includes comprehensive test coverage for all functionality.
 #### Installing Test Dependencies
 
 ```shell
-# Install development dependencies including pytest
-uv pip install -e ".[dev]"
+# Install all dependencies including dev extras (pytest, pytest-asyncio, pytest-cov)
+uv sync --all-extras
 ```
 
 #### Running Tests
 
+**Important:** Always use `uv run pytest` to ensure tests run in the correct virtual environment with all dependencies.
+
 ```shell
 # Run all tests
-pytest
+uv run pytest
 
 # Run tests with verbose output
-pytest -v
+uv run pytest -v
 
-# Run tests with coverage report
-pytest --cov=src --cov-report=term-missing
+# Run tests with coverage report (default configuration)
+uv run pytest
+# Coverage reports are generated automatically per pyproject.toml config
 
 # Run tests with HTML coverage report
-pytest --cov=src --cov-report=html
+uv run pytest --cov-report=html
 # Then open htmlcov/index.html in your browser
 
 # Run specific test file
-pytest tests/test_currency_rates.py
+uv run pytest tests/test_currency_rates.py
 
 # Run specific test function
-pytest tests/test_currency_rates.py::test_get_currency_rate_success
+uv run pytest tests/test_currency_rates.py::test_get_currency_rate_success
 
 # Run tests matching a pattern
-pytest -k "currency"
+uv run pytest -k "currency"
 ```
 
 #### Test Structure
@@ -333,8 +346,8 @@ For development, you can use pytest-watch to automatically run tests when files 
 # Install pytest-watch
 uv pip install pytest-watch
 
-# Run tests in watch mode
-ptw
+# Run tests in watch mode with uv
+uv run ptw
 ```
 
 ### Testing with MCP Inspector

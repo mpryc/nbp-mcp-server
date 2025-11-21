@@ -1,4 +1,5 @@
-from typing import Any
+from typing import Any, Optional
+import re
 import httpx
 from mcp.server.fastmcp import FastMCP
 
@@ -7,8 +8,29 @@ mcp = FastMCP("NBP")
 NBP_API_BASE = "https://api.nbp.pl/api"
 USER_AGENT = "nbp-mcp-server/1.0"
 
+# ISO 8601 date format: YYYY-MM-DD
+DATE_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
-async def make_nbp_request(url: str) -> dict[str, Any] | list[dict[str, Any]] | None:
+
+def validate_date(date: str) -> Optional[str]:
+    """Validate date format (YYYY-MM-DD).
+
+    Args:
+        date: Date string to validate or empty string
+
+    Returns:
+        Error message if invalid, None if valid or date is empty
+    """
+    if not date:
+        return None
+
+    if not DATE_PATTERN.match(date):
+        return f"Invalid date format: '{date}'. Expected YYYY-MM-DD (e.g., 2024-01-15)"
+
+    return None
+
+
+async def make_nbp_request(url: str) -> Optional[dict[str, Any] | list[dict[str, Any]]]:
     """Make a request to the NBP API with proper error handling."""
     headers = {
         "User-Agent": USER_AGENT,
@@ -69,24 +91,38 @@ def format_gold_price(gold: dict) -> str:
 
 
 @mcp.tool()
-async def get_currency_rate(code: str, table: str = "a") -> str:
-    """Get current exchange rate for a currency.
+async def get_currency_rate(code: str, date: str = "", table: str = "a") -> str:
+    """Get exchange rate for a currency, either current or for a specific date.
 
     Args:
         code: Three-letter currency code (e.g., USD, EUR, GBP) following ISO 4217
+        date: Specific date in YYYY-MM-DD format (ISO 8601). If empty, gets current rate.
         table: Table type - 'a' for average rates, 'b' for other currencies, 'c' for bid/ask rates (default: 'a')
     """
     code = code.upper()
     table = table.lower()
 
+    # Validate table type
     if table not in ['a', 'b', 'c']:
         return "Invalid table type. Use 'a', 'b', or 'c'."
 
-    url = f"{NBP_API_BASE}/exchangerates/rates/{table}/{code}/"
+    # Validate date format if provided
+    date_error = validate_date(date)
+    if date_error:
+        return date_error
+
+    # Build URL based on whether date is provided
+    if date:
+        url = f"{NBP_API_BASE}/exchangerates/rates/{table}/{code}/{date}/"
+    else:
+        url = f"{NBP_API_BASE}/exchangerates/rates/{table}/{code}/"
+
     data = await make_nbp_request(url)
 
     if not data:
-        return f"Unable to fetch exchange rate for {code} from table {table.upper()}."
+        if date:
+            return f"Unable to fetch exchange rate for {code} on {date}. The date may be a weekend, holiday, or outside the available data range."
+        return f"Unable to fetch current exchange rate for {code} from table {table.upper()}."
 
     rates = data.get('rates', [])
     if not rates:
@@ -115,22 +151,37 @@ async def get_currency_rate(code: str, table: str = "a") -> str:
 
 
 @mcp.tool()
-async def get_exchange_table(table: str = "a") -> str:
-    """Get current exchange rate table.
+async def get_exchange_table(date: str = "", table: str = "a") -> str:
+    """Get exchange rate table, either current or for a specific date.
 
     Args:
+        date: Specific date in YYYY-MM-DD format (ISO 8601). If empty, gets current table.
         table: Table type - 'a' for average rates, 'b' for other currencies, 'c' for bid/ask rates (default: 'a')
     """
     table = table.lower()
 
+    # Validate table type
     if table not in ['a', 'b', 'c']:
         return "Invalid table type. Use 'a', 'b', or 'c'."
 
-    url = f"{NBP_API_BASE}/exchangerates/tables/{table}/"
+    # Validate date format if provided
+    date_error = validate_date(date)
+    if date_error:
+        return date_error
+
+    # Build URL based on whether date is provided
+    if date:
+        url = f"{NBP_API_BASE}/exchangerates/tables/{table}/{date}/"
+    else:
+        url = f"{NBP_API_BASE}/exchangerates/tables/{table}/"
+
     data = await make_nbp_request(url)
 
+    # NBP API returns a list of tables (usually containing one element)
     if not data or not isinstance(data, list) or len(data) == 0:
-        return f"Unable to fetch exchange rate table {table.upper()}."
+        if date:
+            return f"Unable to fetch exchange rate table {table.upper()} for {date}. The date may be a weekend, holiday, or outside the available data range."
+        return f"Unable to fetch current exchange rate table {table.upper()}."
 
     return format_exchange_table(data[0])
 
@@ -243,12 +294,28 @@ async def get_currency_rate_last_n(code: str, count: int, table: str = "a") -> s
 
 
 @mcp.tool()
-async def get_gold_price() -> str:
-    """Get current gold price in PLN per gram."""
-    url = f"{NBP_API_BASE}/cenyzlota/"
+async def get_gold_price(date: str = "") -> str:
+    """Get gold price in PLN per gram, either current or for a specific date.
+
+    Args:
+        date: Specific date in YYYY-MM-DD format (ISO 8601). If empty, gets current price.
+    """
+    # Validate date format if provided
+    date_error = validate_date(date)
+    if date_error:
+        return date_error
+
+    # Build URL based on whether date is provided
+    if date:
+        url = f"{NBP_API_BASE}/cenyzlota/{date}/"
+    else:
+        url = f"{NBP_API_BASE}/cenyzlota/"
+
     data = await make_nbp_request(url)
 
     if not data or not isinstance(data, list) or len(data) == 0:
+        if date:
+            return f"Unable to fetch gold price for {date}. The date may be a weekend, holiday, or outside the available data range (data available from 2013-01-02)."
         return "Unable to fetch current gold price."
 
     gold = data[0]

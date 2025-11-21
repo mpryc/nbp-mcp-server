@@ -26,7 +26,7 @@ async def test_get_currency_rate_success():
     }
 
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
-        result = await get_currency_rate("USD", "a")
+        result = await get_currency_rate("USD", table="a")
 
     assert "Currency: dolar amerykański" in result
     assert "Code: USD" in result
@@ -55,7 +55,7 @@ async def test_get_currency_rate_table_c():
     }
 
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
-        result = await get_currency_rate("USD", "c")
+        result = await get_currency_rate("USD", table="c")
 
     assert "Currency: dolar amerykański" in result
     assert "Number: 001/C/NBP/2024" in result
@@ -67,7 +67,7 @@ async def test_get_currency_rate_table_c():
 @pytest.mark.asyncio
 async def test_get_currency_rate_invalid_table():
     """Test getting currency rate with invalid table type."""
-    result = await get_currency_rate("USD", "x")
+    result = await get_currency_rate("USD", table="x")
     assert "Invalid table type" in result
 
 
@@ -75,9 +75,9 @@ async def test_get_currency_rate_invalid_table():
 async def test_get_currency_rate_api_error():
     """Test getting currency rate when API returns error."""
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=None)):
-        result = await get_currency_rate("USD", "a")
+        result = await get_currency_rate("USD", table="a")
 
-    assert "Unable to fetch exchange rate" in result
+    assert "Unable to fetch current exchange rate" in result
 
 
 @pytest.mark.asyncio
@@ -91,7 +91,7 @@ async def test_get_currency_rate_no_rates():
     }
 
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
-        result = await get_currency_rate("USD", "a")
+        result = await get_currency_rate("USD", table="a")
 
     assert "No exchange rate data available" in result
 
@@ -120,7 +120,7 @@ async def test_get_exchange_table_success():
     ]
 
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
-        result = await get_exchange_table("a")
+        result = await get_exchange_table(table="a")
 
     assert "Table: A" in result
     assert "Number: 001/A/NBP/2024" in result
@@ -132,7 +132,7 @@ async def test_get_exchange_table_success():
 @pytest.mark.asyncio
 async def test_get_exchange_table_invalid_type():
     """Test getting exchange table with invalid table type."""
-    result = await get_exchange_table("z")
+    result = await get_exchange_table(table="z")
     assert "Invalid table type" in result
 
 
@@ -140,9 +140,9 @@ async def test_get_exchange_table_invalid_type():
 async def test_get_exchange_table_api_error():
     """Test getting exchange table when API returns error."""
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=None)):
-        result = await get_exchange_table("a")
+        result = await get_exchange_table(table="a")
 
-    assert "Unable to fetch exchange rate table" in result
+    assert "Unable to fetch current exchange rate table" in result
 
 
 @pytest.mark.asyncio
@@ -263,10 +263,111 @@ async def test_currency_code_case_insensitive():
     }
 
     with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
-        result_lower = await get_currency_rate("usd", "a")
-        result_upper = await get_currency_rate("USD", "a")
-        result_mixed = await get_currency_rate("UsD", "a")
+        result_lower = await get_currency_rate("usd", table="a")
+        result_upper = await get_currency_rate("USD", table="a")
+        result_mixed = await get_currency_rate("UsD", table="a")
 
     assert "Currency: dolar amerykański" in result_lower
     assert "Currency: dolar amerykański" in result_upper
     assert "Currency: dolar amerykański" in result_mixed
+
+
+@pytest.mark.asyncio
+async def test_get_currency_rate_with_date():
+    """Test getting currency rate for a specific date."""
+    mock_response = {
+        "table": "A",
+        "currency": "euro",
+        "code": "EUR",
+        "rates": [
+            {
+                "no": "015/A/NBP/2024",
+                "effectiveDate": "2024-01-15",
+                "mid": 4.3215
+            }
+        ]
+    }
+
+    with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
+        result = await get_currency_rate("EUR", date="2024-01-15", table="a")
+
+    assert "Currency: euro" in result
+    assert "Code: EUR" in result
+    assert "Effective Date: 2024-01-15" in result
+    assert "Mid Rate: 4.3215 PLN" in result
+
+
+@pytest.mark.asyncio
+async def test_get_currency_rate_invalid_date_format():
+    """Test getting currency rate with invalid date format."""
+    result = await get_currency_rate("USD", date="01-15-2024", table="a")
+    assert "Invalid date format" in result
+    assert "YYYY-MM-DD" in result
+
+    result = await get_currency_rate("USD", date="2024/01/15", table="a")
+    assert "Invalid date format" in result
+
+    result = await get_currency_rate("USD", date="15.01.2024", table="a")
+    assert "Invalid date format" in result
+
+
+@pytest.mark.asyncio
+async def test_get_currency_rate_date_not_found():
+    """Test getting currency rate when date has no data (weekend/holiday)."""
+    with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=None)):
+        result = await get_currency_rate("USD", date="2024-01-01", table="a")
+
+    assert "Unable to fetch exchange rate" in result
+    assert "2024-01-01" in result
+    assert "weekend, holiday" in result
+
+
+@pytest.mark.asyncio
+async def test_get_exchange_table_with_date():
+    """Test getting exchange table for a specific date."""
+    mock_response = [
+        {
+            "table": "A",
+            "no": "015/A/NBP/2024",
+            "effectiveDate": "2024-01-15",
+            "rates": [
+                {
+                    "currency": "dolar amerykański",
+                    "code": "USD",
+                    "mid": 3.9876
+                },
+                {
+                    "currency": "euro",
+                    "code": "EUR",
+                    "mid": 4.3215
+                }
+            ]
+        }
+    ]
+
+    with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
+        result = await get_exchange_table(date="2024-01-15", table="a")
+
+    assert "Table: A" in result
+    assert "Effective Date: 2024-01-15" in result
+    assert "Currency: dolar amerykański" in result
+    assert "Currency: euro" in result
+
+
+@pytest.mark.asyncio
+async def test_get_exchange_table_invalid_date_format():
+    """Test getting exchange table with invalid date format."""
+    result = await get_exchange_table(date="15-01-2024", table="a")
+    assert "Invalid date format" in result
+    assert "YYYY-MM-DD" in result
+
+
+@pytest.mark.asyncio
+async def test_get_exchange_table_date_not_found():
+    """Test getting exchange table when date has no data."""
+    with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=None)):
+        result = await get_exchange_table(date="2024-01-01", table="a")
+
+    assert "Unable to fetch exchange rate table" in result
+    assert "2024-01-01" in result
+    assert "weekend, holiday" in result

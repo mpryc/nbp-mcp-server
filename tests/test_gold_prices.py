@@ -166,3 +166,46 @@ async def test_get_gold_price_last_n_single_price():
     assert "Last 1 Gold Prices" in result
     assert "Date: 2024-01-02" in result
     assert "Price: 245.67 PLN/g" in result
+
+
+@pytest.mark.asyncio
+async def test_get_gold_price_with_date():
+    """Test getting gold price for a specific date."""
+    mock_response = [
+        {
+            "data": "2024-01-15",
+            "cena": 248.50
+        }
+    ]
+
+    with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=mock_response)):
+        result = await get_gold_price(date="2024-01-15")
+
+    assert "Date: 2024-01-15" in result
+    assert "Price: 248.5 PLN/g" in result
+
+
+@pytest.mark.asyncio
+async def test_get_gold_price_invalid_date_format():
+    """Test getting gold price with invalid date format."""
+    result = await get_gold_price(date="01-15-2024")
+    assert "Invalid date format" in result
+    assert "YYYY-MM-DD" in result
+
+    result = await get_gold_price(date="2024/01/15")
+    assert "Invalid date format" in result
+
+    result = await get_gold_price(date="15.01.2024")
+    assert "Invalid date format" in result
+
+
+@pytest.mark.asyncio
+async def test_get_gold_price_date_not_found():
+    """Test getting gold price when date has no data (weekend/holiday)."""
+    with patch("src.nbp.make_nbp_request", new=AsyncMock(return_value=None)):
+        result = await get_gold_price(date="2024-01-01")
+
+    assert "Unable to fetch gold price" in result
+    assert "2024-01-01" in result
+    assert "weekend, holiday" in result
+    assert "2013-01-02" in result  # Mentions data availability start date
